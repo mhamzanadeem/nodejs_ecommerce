@@ -1,1 +1,23 @@
 node_modules
+
+# Environment variables
+backend/config/config.env
+
+# Dependencies
+package-lock.json
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Build
+frontend/build/
+frontend/dist/

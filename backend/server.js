@@ -18,12 +18,18 @@ const app = require('./app')                  // The configured Express app
 const dotenv = require("dotenv")              // Loads .env variables into process.env
 const connectDatabase = require("./config/database") // MongoDB connection function
 
+process.on("unhandledException", (err) => {
+  console.log(`Error: ${err.message}`);
+  console.log(`Shutting down the server due to unhandled Exception`);
+  process.exit(1);
+
+})
 // =============================================
 // LOAD ENVIRONMENT VARIABLES
 //   Reads backend/config/config.env file and
 //   populates process.env with key-value pairs
 // =============================================
-dotenv.config({path:"backend/config/config.env"})
+dotenv.config({ path: "backend/config/config.env" })
 
 // =============================================
 // DATABASE CONNECTION
@@ -31,12 +37,22 @@ dotenv.config({path:"backend/config/config.env"})
 //   the DB_URI from environment variables
 // =============================================
 connectDatabase()
- 
+
 // =============================================
 // START SERVER
 //   Listens for incoming requests on the
 //   configured PORT (from config.env)
 // =============================================
-app.listen(process.env.PORT, () => {
-    console.log(`Server is working on http://localhost:${process.env.PORT}`)
+const server = app.listen(process.env.PORT, () => {
+  console.log(`Server is working on http://localhost:${process.env.PORT}`)
+})
+
+
+process.on("unhandledRejection", (err) => {
+  console.log(`Error: ${err.message}`);
+  console.log(`Shutting down the server due to unhandled Promise Rejection`);
+
+  server.close(() => {
+    process.exit(1);
+  })
 })

@@ -15,9 +15,10 @@
 const express = require('express');
 
 // =============================================
-// CREATE: Express App Instance
+// CREATE: Express App Instance & Middleware
 // =============================================
 const app = express();
+const errorMiddleware = require("./middleware/error");
 
 // =============================================
 // MIDDLEWARE: Parse incoming JSON request bodies
@@ -32,6 +33,13 @@ app.use(express.json())
 const product = require("./routes/productRoute");
 app.use("/api/v1" , product)
 
+// =============================================
+// ERROR MIDDLEWARE: Catches all errors thrown
+//   in controllers and returns structured JSON
+//   response with statusCode and message.
+//   Must be placed AFTER all routes.
+// =============================================
+app.use(errorMiddleware);
 // =============================================
 // EXPORT: Share the configured app with server.js
 // =============================================

@@ -12,29 +12,33 @@
 */
 
 // =============================================
-// IMPORTS: Product Model (for DB operations)
+// IMPORTS
 // =============================================
-const Product = require("../models/productModels")
+const catchAsyncErrors = require("../middleware/catchAsyncErrors"); // Wraps async functions to catch errors
+const Product = require("../models/productModels");                 // Mongoose Product model
+const ErrorHandler = require("../utils/errorhandler");              // Custom error class with statusCode
 
 // =============================================
-// CREATE: Product 
+// CONTROLLER: createProduct
+//   Handles POST /api/v1/products/new
+//   Creates a new product from req.body data
+//   and saves it to the database.
 // =============================================
-exports.createProduct = async (req, res, next) => {
+exports.createProduct = catchAsyncErrors(async (req, res, next) => {
     const product = await Product.create(req.body);
     res.status(201).json({
         success: true,
         product
     })
-}
+});
 
 // =============================================
 // CONTROLLER: getAllProducts
 //   Handles GET /api/v1/products
-//   Returns a JSON response with all products.
-//   NOTE: Replace the response with actual database
-//         query using Product.find() once model is ready.
+//   Fetches all products from the database
+//   and returns them in the response.
 // =============================================
-exports.getAllProducts = async (req, res) => {
+exports.getAllProducts = catchAsyncErrors(async (req, res) => {
 
     const products = await Product.find();
 
@@ -42,33 +46,43 @@ exports.getAllProducts = async (req, res) => {
         success: true,
         products
     })
-}
+});
 
-exports.getProductDetails = async (req, res, next) => {
+// =============================================
+// CONTROLLER: getProductDetails
+//   Handles GET /api/v1/products/:id
+//   Fetches a single product by its MongoDB _id.
+//   Returns 404 if product is not found.
+// =============================================
+exports.getProductDetails = catchAsyncErrors(async (req, res, next) => {
     let product = await Product.findById(req.params.id);
+    ;
 
     if (!product) {
-        return res.status(500).json({
-            success: false,
-            message: "Product not found"
-        })
+        return next(new ErrorHandler("Product Not Found", 404));
     }
-
 
     res.status(200).json({
         success: true,
         product
     })
-}
+});
 
-exports.updateProduct = async (req, res, next) => {
+// =============================================
+// CONTROLLER: updateProduct
+//   Handles PUT /api/v1/products/:id
+//   Updates an existing product by its _id.
+//   - Finds the product first (returns 404 if missing)
+//   - Then updates with new data from req.body
+//   - { new: true } returns the updated document
+//   - { runValidators: true } re-runs schema validations
+// =============================================
+exports.updateProduct = catchAsyncErrors(async (req, res, next) => {
     let product = await Product.findById(req.params.id);
+    ;
 
     if (!product) {
-        return res.status(500).json({
-            success: false,
-            message: "Product not found"
-        })
+        return next(new ErrorHandler("Product Not Found", 404));
     }
 
     product = await Product.findByIdAndUpdate(req.params.id, req.body, {
@@ -81,16 +95,20 @@ exports.updateProduct = async (req, res, next) => {
         success: true,
         product
     })
-}
+});
 
-exports.deleteProduct = async (req, res, next) => {
+// =============================================
+// CONTROLLER: deleteProduct
+//   Handles DELETE /api/v1/products/:id
+//   Deletes an existing product by its _id.
+//   - Finds the product first (returns 404 if missing)
+//   - Calls deleteOne() to remove it from the database
+// =============================================
+exports.deleteProduct = catchAsyncErrors(async (req, res, next) => {
     let product = await Product.findById(req.params.id);
 
     if (!product) {
-        return res.status(500).json({
-            success: false,
-            message: "Product not found"
-        })
+        return next(new ErrorHandler("Product Not Found", 404));
     }
 
     await product.deleteOne();
@@ -99,4 +117,4 @@ exports.deleteProduct = async (req, res, next) => {
         success: true,
         message: "Product deleted successfully"
     })
-}
+});

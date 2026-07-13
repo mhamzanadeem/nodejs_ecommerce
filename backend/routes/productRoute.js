@@ -25,8 +25,14 @@ const router = express.Router();
 
 // =============================================
 // ROUTE DEFINITIONS
-//   Maps HTTP GET /products to getAllProducts controller
-//   Additional routes (POST, PUT, DELETE) can be added here
+//   GET    /products       -> getAllProducts    (Fetch all products)
+//   POST   /products/new   -> createProduct     (Create a new product)
+//   GET    /products/:id   -> getProductDetails (Fetch single product by ID)
+//   PUT    /products/:id   -> updateProduct     (Update product by ID)
+//   DELETE /products/:id   -> deleteProduct     (Delete product by ID)
+//
+//   These routes are mounted under "/api/v1" in app.js,
+//   so full URLs become e.g. GET /api/v1/products
 // =============================================
 router.route("/products").get(getAllProducts);
 router.route("/products/new").post(createProduct);

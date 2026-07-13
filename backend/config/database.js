@@ -22,7 +22,7 @@ const mongoose = require("mongoose")
 //   environment variable. Handles success/error
 //   via .then() and .catch() promises.
 // =============================================
-const connectDatabase = () => { mongoose.connect(process.env.DB_URI).then((data) => { console.log(`Mongodb connect with server: ${data.connection.host}`) }).catch((err) => { console.log(err) }) }
+const connectDatabase = () => { mongoose.connect(process.env.DB_URI).then((data) => { console.log(`Mongodb connect with server: ${data.connection.host}`); }); }
 
 // =============================================
 // EXPORT: Connect function to be called in server.js

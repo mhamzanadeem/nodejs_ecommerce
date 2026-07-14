@@ -26,7 +26,13 @@
 // =============================================
 // IMPORTS
 // =============================================
-const nodeMailer = require("nodemailer")
+
+/**
+ * nodeMailer - Email sending library for Node.js.
+ * Supports various transports (SMTP, SendGrid, etc.)
+ * We use SMTP transport configured via environment variables.
+ */
+const nodeMailer = require("nodemailer");
 
 // =============================================
 // FUNCTION: sendEmail
@@ -38,9 +44,11 @@ const nodeMailer = require("nodemailer")
 //     - message: Plain-text email body
 //
 //   Flow:
-//     1. Creates a Nodemailer transport using SMTP env vars
-//     2. Constructs mail options (from, to, subject, text)
-//     3. Awaits transporter.sendMail() to send the email
+//     1. Creates a Nodemailer transport using SMTP credentials
+//        from environment variables (SMPT_HOST, SMPT_PORT, etc.)
+//     2. Constructs mail options with from, to, subject, and text
+//     3. Calls transporter.sendMail() to send the email
+//     4. Throws on failure — caller should use try/catch
 //
 //   Usage:
 //     await sendEmail({
@@ -49,32 +57,51 @@ const nodeMailer = require("nodemailer")
 //       message: "Click this link to reset your password..."
 //     })
 // =============================================
-const sendEmail = async(options) => {
+const sendEmail = async (options) => {
+  // -------------------------------------------
+  // CREATE: SMTP Transport
+  //   Configures the email transport using
+  //   environment variables for SMTP credentials.
+  //   This allows switching email providers
+  //   without changing code.
+  // -------------------------------------------
+  const transporter = nodeMailer.createTransport({
+    host: process.env.SMPT_HOST,
+    port: process.env.SMPT_PORT,
+    service: process.env.SMPT_SERVICE,
+    auth: {
+      user: process.env.SMPT_EMAIL,
+      pass: process.env.SMPT_PASSWORD,
+    },
+  });
 
-    // Create the SMTP transport with credentials from environment
-    const transporter = nodeMailer.createTransport({
-        host:process.env.SMPT_HOST,
-        port: process.env.SMPT_PORT,
-        service: process.env.SMPT_SERVICE,
-        auth: {
-            user:process.env.SMPT_EMAIL,
-            pass:process.env.SMPT_PASSWORD
-        }
-    })
+  // -------------------------------------------
+  // BUILD: Mail Options
+  //   Constructs the email content with:
+  //     - from:    Sender's email (from env vars)
+  //     - to:      Recipient's email (from options)
+  //     - subject: Email subject line
+  //     - text:    Plain-text email body
+  // -------------------------------------------
+  const mailOptions = {
+    from: process.env.SMPT_EMAIL,
+    to: options.email,
+    subject: options.subject,
+    text: options.message,
+  };
 
-    // Build the email content
-    const mailOptions = {
-        from: process.env.SMPT_EMAIL,
-        to:options.email,
-        subject:options.subjects,
-        text:options.message
-    }
-
-    // Send the email (throws on failure — caller should catch)
-    await transporter.sendMail(mailOptions);
-}
+  // -------------------------------------------
+  // SEND: Email via SMTP
+  //   Calls transporter.sendMail() to send the
+  //   email through the configured SMTP server.
+  //   Throws on failure — caller should catch.
+  // -------------------------------------------
+  await transporter.sendMail(mailOptions);
+};
 
 // =============================================
-// EXPORT: sendEmail function for use in controllers
+// EXPORT: sendEmail function
+//   Used in userController.js for the
+//   forgotPassword controller.
 // =============================================
 module.exports = sendEmail;

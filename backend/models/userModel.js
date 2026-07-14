@@ -26,6 +26,7 @@ const mongoose = require("mongoose")
 const validator = require("validator")   // Email validation library
 const bcrypt = require("bcryptjs")       // Password hashing library
 const jwt = require("jsonwebtoken")      // JWT signing library
+const crypto = require("crypto")   // Node.js built-in for generating secure random tokens
 
 // =============================================
 // CREATE: User Schema
@@ -105,10 +106,10 @@ userSchema.pre("save", async function (next) {
 //   Uses JWT_SECRET and JWT_EXPIRE from environment variables.
 //   Called after login/register to generate an auth token.
 // =============================================
-userSchema.methods.getJWTToken  = function () {
-    return jwt.sign({id: this._id} , process.env.JWT_SECRET,{
+userSchema.methods.getJWTToken = function () {
+    return jwt.sign({ id: this._id }, process.env.JWT_SECRET, {
         expiresIn: process.env.JWT_EXPIRE,
-    } )
+    })
 }
 
 // =============================================
@@ -118,10 +119,33 @@ userSchema.methods.getJWTToken  = function () {
 //   Uses bcrypt.compare() which handles salt comparison.
 //   Returns true if passwords match, false otherwise.
 // =============================================
-userSchema.methods.comparePassword  = async function (enteredPassword) {
-   return await bcrypt.compare(enteredPassword,this.password)
+userSchema.methods.comparePassword = async function (enteredPassword) {
+    return await bcrypt.compare(enteredPassword, this.password)
 }
 
+
+// =============================================
+// INSTANCE METHOD: getResetPasswordToken()
+//   Generates a password reset token for the forgot-password flow.
+//   1. Creates a random 20-byte token and converts it to hex string
+//   2. Hashes the token with SHA-256 and stores it in the database
+//      (the raw token is sent to the user via email, never stored)
+//   3. Sets the token expiry to 15 minutes from now
+//   4. Returns the raw (unhashed) token to be sent in the reset email
+//
+//   Security: Only the hashed version is stored in the DB so that
+//   even if the database is compromised, the raw tokens are safe.
+// =============================================
+userSchema.methods.getResetPasswordToken = function () {
+
+    const resetToken = crypto.randomBytes(20).toString("hex");
+
+    this.resetPasswordToken = crypto.createHash("sha256").update(resetToken).digest("hex");
+
+    this.resetPasswordExpire = Date.now() + 15*60*1000;
+
+    return resetToken;
+}
 // =============================================
 // EXPORT: User Model
 //   Creates and exports the "User" model.

@@ -95,6 +95,14 @@ const productSchema = new mongoose.Schema({
             }
         }
     ],
+    // Reference to the User who created this product.
+    // Uses MongoDB ObjectId and links to the "User" model.
+    // Required so each product is associated with an owner.
+    user: {
+        type: mongoose.Schema.ObjectId,
+        ref: "User",
+        required: true,
+    },
     createdAt: {
         type: Date,
         default: Date.now

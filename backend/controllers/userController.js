@@ -25,6 +25,7 @@ const User = require("../models/userModel");                       // Mongoose U
 const ApiFeatures = require("../utils/apifeatures");               // Query builder for search/filter/pagination
 const ErrorHandler = require("../utils/errorhandler");             // Custom error class with statusCode
 const sendToken = require("../utils/jwtToken");                    // Utility to generate JWT and send as cookie
+const sendEmail = require("../utils/sendEmail");                    // Utility to send emails (used for password reset)
 
 // =============================================
 // CONTROLLER: registerUser
@@ -84,88 +85,75 @@ exports.loginUser = catchAsyncErrors(async (req, res, next) => {
 
 
 // =============================================
-// WARNING: The functions below are duplicated from
-// productController.js and will NOT work here.
-// They reference `Product` which is not imported.
-// They should be removed from this file.
+// CONTROLLER: logout
+//   Handles GET /api/v1/logout
+//   Logs out the current user by clearing the
+//   authentication cookie. Sets the "token" cookie
+//   to null with an expiry of now (immediately expires).
+//   Returns a success message on completion.
 // =============================================
-exports.getAllProducts = catchAsyncErrors(async (req, res) => {
-    const resultPerPage = 5;
-    const productCount = await Product.countDocuments();
-
-    const apiFeature = new ApiFeatures(Product.find(), req.query).search().filter().pagination(resultPerPage)
-
-    const products = await Product.query();
+exports.logout = catchAsyncErrors(async (req,res,next) => {
+    req.cookie("token" , null , {
+        expires: new Date(Date.now()),
+        httpOnly: true,
+    })
 
     res.status(200).json({
         success: true,
-        products
+        message: "Logged Out"
     })
-});
+})
 
 // =============================================
-// CONTROLLER: getProductDetails (DUPLICATE - from productController)
-//   Handles GET /api/v1/products/:id
-//   WARNING: This is a copy-paste duplicate and will crash
-//   at runtime because `Product` is not imported in this file.
+// CONTROLLER: forgotPassword
+//   Handles POST /api/v1/password/forgot
+//   Sends a password reset email to the user.
+//   1. Finds the user by email from req.body
+//   2. Generates a reset token via user.getResetPasswordToken()
+//      (this hashes the token and stores it in the DB)
+//   3. Saves the user with validateBeforeSave: false to skip
+//      other field validations (only token fields changed)
+//   4. Builds a reset URL using the raw token:
+//      /api/v1/password/reset/:token
+//   5. Sends the URL in an email to the user
+//   6. If email fails, clears the token fields and returns error
+//
+//   Flow: User requests reset -> gets email with link ->
+//         clicks link -> hits resetPassword controller
 // =============================================
-exports.getProductDetails = catchAsyncErrors(async (req, res, next) => {
-    let product = await Product.findById(req.params.id);
-    ;
+exports.forgotPassword = catchAsyncErrors(async(req,res,next) => {
+    const user = await User.findOne({email:req.body.email});
 
-    if (!product) {
-        return next(new ErrorHandler("Product Not Found", 404));
+    if(!user){
+        return next( new ErrorHandler("User not found" ,404))
     }
 
-    res.status(200).json({
-        success: true,
-        product
-    })
-});
+    const resetToken = user.getResetPasswordToken();
 
-// =============================================
-// CONTROLLER: updateProduct (DUPLICATE - from productController)
-//   Handles PUT /api/v1/products/:id
-//   WARNING: This is a copy-paste duplicate and will crash
-//   at runtime because `Product` is not imported in this file.
-// =============================================
-exports.updateProduct = catchAsyncErrors(async (req, res, next) => {
-    let product = await Product.findById(req.params.id);
-    ;
+    await user.save({validateBeforeSave: false})
 
-    if (!product) {
-        return next(new ErrorHandler("Product Not Found", 404));
+    const resetPasswordUrl = `${req.protocol}://${req.get("host")}/api/v1/password/reset/${resetToken}`;
+
+    const message = `Your password rest token is :- \n\n ${resetPasswordUrl} \n\n If you have not requested this then,please ignore it `
+
+    try {
+        await sendEmail({
+            email: user.email,
+            subject: `Ecommerce Password Recovery`,
+            message,
+        })
+
+        res.status(200).json({
+            success: true,
+            message: `Email sne to ${user.email} successfully`
+        })
+    } catch (error) {
+        user.resetPasswordToken = undefined
+        user.resetPasswordExpire = undefined
+
+        await user.save({validateBeforeSave:false});
+
+        return  next(new ErrorHandler(error.message, 500));
     }
 
-    product = await Product.findByIdAndUpdate(req.params.id, req.body, {
-        new: true,
-        runValidators: true,
-        useFindAndModify: false
-    });
-
-    res.status(200).json({
-        success: true,
-        product
-    })
-});
-
-// =============================================
-// CONTROLLER: deleteProduct (DUPLICATE - from productController)
-//   Handles DELETE /api/v1/products/:id
-//   WARNING: This is a copy-paste duplicate and will crash
-//   at runtime because `Product` is not imported in this file.
-// =============================================
-exports.deleteProduct = catchAsyncErrors(async (req, res, next) => {
-    let product = await Product.findById(req.params.id);
-
-    if (!product) {
-        return next(new ErrorHandler("Product Not Found", 404));
-    }
-
-    await product.deleteOne();
-
-    res.status(200).json({
-        success: true,
-        message: "Product deleted successfully"
-    })
-});
+})

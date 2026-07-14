@@ -26,6 +26,8 @@ const ErrorHandler = require("../utils/errorhandler");              // Custom er
 //   and saves it to the database.
 // =============================================
 exports.createProduct = catchAsyncErrors(async (req, res, next) => {
+
+    req.body.user = req.user.id,
     const product = await Product.create(req.body);
     res.status(201).json({
         success: true,

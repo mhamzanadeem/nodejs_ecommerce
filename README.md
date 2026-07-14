@@ -1,4 +1,4 @@
-# MERN E-Commerce Backend API
+# MERN E-Commerce 
 
 A complete backend API for an online store, built with Node.js, Express, and MongoDB. This API handles user accounts, product management, shopping orders, and customer reviews.
 
@@ -476,6 +476,4 @@ Common errors:
 
 ---
 
-## License
 
-ISC

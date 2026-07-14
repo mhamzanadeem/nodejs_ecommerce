@@ -31,7 +31,10 @@ app.use(express.json())
 //   - e.g., GET /api/v1/products
 // =============================================
 const product = require("./routes/productRoute");
+const user = require("./routes/userRoute");
+
 app.use("/api/v1" , product)
+app.use("/api/v1" , user)
 
 // =============================================
 // ERROR MIDDLEWARE: Catches all errors thrown

@@ -29,6 +29,10 @@ module.exports = (err, req, res, next) => {
     err.statusCode = err.statusCode || 500;
     err.message = err.message || "Internal Server Error";
 
+    // Handle Mongoose CastError: This occurs when an invalid
+    // ObjectId is passed to a query (e.g. GET /products/invalidId).
+    // Mongoose throws CastError because the value can't be cast
+    // to a MongoDB ObjectId. We convert this to a 400 Bad Request.
     if(err.name === "CastError") {
         const message = `Resource not found. Invalid: ${err.path}`;
         err = new ErrorHandler(message, 400)

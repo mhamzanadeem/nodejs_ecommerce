@@ -33,7 +33,7 @@ const mongoose = require("mongoose")
 //     - reviews:      Array of { name, rating, comment }
 //     - createdAt:    Date (default: current date)
 // =============================================
-const productSchema = mongoose.Schema({
+const productSchema = new mongoose.Schema({
     name: {
         type: String,
         required: [true, "Please Enter product Name"],

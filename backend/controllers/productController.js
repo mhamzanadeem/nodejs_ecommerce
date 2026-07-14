@@ -16,6 +16,7 @@
 // =============================================
 const catchAsyncErrors = require("../middleware/catchAsyncErrors"); // Wraps async functions to catch errors
 const Product = require("../models/productModels");                 // Mongoose Product model
+const ApiFeatures = require("../utils/apifeatures");
 const ErrorHandler = require("../utils/errorhandler");              // Custom error class with statusCode
 
 // =============================================
@@ -39,8 +40,12 @@ exports.createProduct = catchAsyncErrors(async (req, res, next) => {
 //   and returns them in the response.
 // =============================================
 exports.getAllProducts = catchAsyncErrors(async (req, res) => {
+    const resultPerPage = 5;
+    const productCount = await Product.countDocuments();
 
-    const products = await Product.find();
+    const apiFeature = new ApiFeatures(Product.find(), req.query).search().filter().pagination(resultPerPage)
+    
+    const products = await Product.query();
 
     res.status(200).json({
         success: true,

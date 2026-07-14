@@ -21,19 +21,35 @@
     These middleware are used in route definitions to protect
     endpoints that require login or admin access.
     Example: router.post("/products/new", isAuthenticateduser, authorizedRoles("admin"), createProduct)
-
-    NOTE: There are bugs in this file:
-      - Line 23: req, res.role should be req.user.role
-      - Line 21-26: authorizedRoles does not call next() on success
 =============================================
 */
 
 // =============================================
 // IMPORTS
 // =============================================
+
+/**
+ * jwt - JSON Web Token library for verifying
+ * tokens signed with a secret key.
+ */
 const jwt = require("jsonwebtoken");
+
+/**
+ * ErrorHandler - Custom error class that includes
+ * an HTTP statusCode for structured error responses.
+ */
 const ErrorHandler = require("../utils/errorhandler");
+
+/**
+ * catchAsyncErrors - Wrapper that catches rejected
+ * promises and forwards errors to the error middleware.
+ */
 const catchAsyncErrors = require("./catchAsyncErrors");
+
+/**
+ * User - Mongoose model for fetching user data
+ * from the database after token verification.
+ */
 const User = require("../models/userModel");
 
 // =============================================
@@ -53,18 +69,27 @@ const User = require("../models/userModel");
 //     router.get("/profile", isAuthenticateduser, getProfile)
 // =============================================
 exports.isAuthenticateduser = catchAsyncErrors(async (req, res, next) => {
-    const { token } = req.cookies;
+  // Extract the JWT token from the request cookies
+  const { token } = req.cookies;
 
-    if (!token) {
-        return next(new ErrorHandler("Please Login to access this resource", 401))
-    }
+  // If no token is present, the user is not authenticated
+  if (!token) {
+    return next(
+      new ErrorHandler("Please Login to access this resource", 401),
+    );
+  }
 
-    const decodeddata = jwt.verify(token, process.env.JWT_SECRET)
+  // Verify the token and decode the payload (contains user ID)
+  const decodeddata = jwt.verify(token, process.env.JWT_SECRET);
 
-    req.user = await User.findById(decodeddata.id)
+  // Fetch the full user document from the database
+  // This user object is available in all downstream controllers
+  // via req.user (e.g., req.user.id, req.user.role)
+  req.user = await User.findById(decodeddata.id);
 
-    next()
-})
+  // Pass control to the next middleware or route handler
+  next();
+});
 
 // =============================================
 // MIDDLEWARE: authorizedRoles (Factory Function)
@@ -78,19 +103,23 @@ exports.isAuthenticateduser = catchAsyncErrors(async (req, res, next) => {
 //     1. Returns a middleware function (closure)
 //     2. Checks if req.user.role is included in the roles array
 //     3. If not authorized, returns 403 (Forbidden)
-//     4. If authorized, should call next() (see bug note below)
+//     4. If authorized, calls next() to continue
 //
 //   Usage in routes:
 //     router.post("/products/new", isAuthenticateduser, authorizedRoles("admin"), createProduct)
-//
-//   BUG: This middleware does not call next() on success,
-//   so authorized requests will hang indefinitely.
-//   BUG: req, res.role on line 23 should be req.user.role.
 // =============================================
 exports.authorizedRoles = (...roles) => {
-    return (req, res, next) => {
-        if (!roles.includes(req, res.role)) {
-            return next(new ErrorHandler(`Role: ${req.user.role} is not allowed to access this resource `, 403))
-        }
+  return (req, res, next) => {
+    // Check if the user's role is in the list of allowed roles
+    if (!roles.includes(req.user.role)) {
+      return next(
+        new ErrorHandler(
+          `Role: ${req.user.role} is not allowed to access this resource `,
+          403,
+        ),
+      );
     }
-}
+    // User is authorized — proceed to the route handler
+    next();
+  };
+};

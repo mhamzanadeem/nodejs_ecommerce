@@ -22,134 +22,251 @@
 // =============================================
 // IMPORTS
 // =============================================
-const mongoose = require("mongoose")
-const validator = require("validator")   // Email validation library
-const bcrypt = require("bcryptjs")       // Password hashing library
-const jwt = require("jsonwebtoken")      // JWT signing library
-const crypto = require("crypto")   // Node.js built-in for generating secure random tokens
+
+/**
+ * mongoose - Mongoose ODM library for interacting
+ * with MongoDB. Provides schema-based modeling,
+ * validation, and query building.
+ */
+const mongoose = require("mongoose");
+
+/**
+ * validator - Email validation library.
+ * Used to validate that the user's email is in
+ * a proper format (e.g., user@example.com).
+ */
+const validator = require("validator");
+
+/**
+ * bcryptjs - Password hashing library.
+ * Used to securely hash passwords before storing
+ * them in the database (never store plaintext).
+ */
+const bcrypt = require("bcryptjs");
+
+/**
+ * jwt - JSON Web Token library for signing
+ * authentication tokens with a secret key.
+ */
+const jwt = require("jsonwebtoken");
+
+/**
+ * crypto - Node.js built-in module for generating
+ * secure random tokens (used for password reset flow).
+ */
+const crypto = require("crypto");
 
 // =============================================
-// CREATE: User Schema
+// SCHEMA: User
 //   Defines the structure and validation rules
-//   for each user document in MongoDB.
-//   Fields:
-//     - name:     String (required, 4-30 chars)
-//     - email:    String (required, unique, validated with validator.isEmail)
-//     - password: String (required, min 8 chars, select:false so it's excluded
-//                  from queries by default — must use .select("+password") to include)
-//     - avatar:   Array of { public_id, url } — for profile picture storage
-//     - role:     String (default: "user", can be "admin")
-//     - resetPasswordToken:  String — token for password reset flow
-//     - resetPasswordExpire: Date — expiry time for the reset token
+//   for each user document in the "users"
+//   collection in MongoDB.
 // =============================================
 const userSchema = new mongoose.Schema({
-    name: {
-        type: String,
-        required: [true, "Please Enter Your Name"],
-        maxLength: [30, "Name cannot exceed 30 characters"],
-        minLength: [4, "Name should have more than 4 characters"]
+  // -------------------------------------------
+  // FIELD: name
+  //   The user's full name.
+  //   - Required with custom error message
+  //   - Max 30 characters
+  //   - Min 4 characters
+  // -------------------------------------------
+  name: {
+    type: String,
+    required: [true, "Please Enter Your Name"],
+    maxLength: [30, "Name cannot exceed 30 characters"],
+    minLength: [4, "Name should have more than 4 characters"],
+  },
 
-    },
-    email: {
-        type: String,
-        required: [true, "Please Enter your email"],
-        unique: true,
-        validate: [validator.isEmail, "Please Enter a valid Email"]
-    },
-    password: {
-        type: String,
-        required: [true, "Please Enter your Password"],
-        minLength: [8, "Password should be greater than 8 characters"],
-        select: false,
+  // -------------------------------------------
+  // FIELD: email
+  //   The user's email address (unique identifier).
+  //   - Required with custom error message
+  //   - Unique: prevents duplicate registrations
+  //   - Validated using validator.isEmail to ensure
+  //     proper email format (e.g., user@example.com)
+  // -------------------------------------------
+  email: {
+    type: String,
+    required: [true, "Please Enter your email"],
+    unique: true,
+    validate: [validator.isEmail, "Please Enter a valid Email"],
+  },
 
-    },
-    avatar: [
-        {
-            public_id: {
-                type: String,
-                required: true
-            },
-            url: {
-                type: String,
-                required: true
-            }
-        }
-    ],
-    role: {
+  // -------------------------------------------
+  // FIELD: password
+  //   The user's password (stored as a bcrypt hash).
+  //   - Required with custom error message
+  //   - Min 8 characters
+  //   - select: false means this field is EXCLUDED
+  //     from query results by default. To include it,
+  //     use .select("+password") in the query.
+  //     This prevents accidental password exposure.
+  // -------------------------------------------
+  password: {
+    type: String,
+    required: [true, "Please Enter your Password"],
+    minLength: [8, "Password should be greater than 8 characters"],
+    select: false,
+  },
+
+  // -------------------------------------------
+  // FIELD: avatar
+  //   User's profile picture. Stored as an array
+  //   with a single image object containing:
+  //     - public_id: Cloud storage identifier
+  //     - url:       Public URL to access the image
+  //   Uses array format for consistency with the
+  //   product images structure.
+  // -------------------------------------------
+  avatar: [
+    {
+      public_id: {
         type: String,
-        default: "user"
+        required: true,
+      },
+      url: {
+        type: String,
+        required: true,
+      },
     },
-    resetPasswordToken: String,
-    resetPasswordExpire: Date,
-})
+  ],
+
+  // -------------------------------------------
+  // FIELD: role
+  //   The user's access level in the application.
+  //   - Default: "user" (regular customer)
+  //   - Can be set to "admin" for administrative access
+  //   - Used by authorizedRoles middleware to control
+  //     access to admin-only routes
+  // -------------------------------------------
+  role: {
+    type: String,
+    default: "user",
+  },
+
+  // -------------------------------------------
+  // FIELD: resetPasswordToken
+  //   Stores the hashed version of the password
+  //   reset token. The raw token is sent to the
+  //   user via email; only the hash is stored here.
+  //   Cleared after successful password reset.
+  // -------------------------------------------
+  resetPasswordToken: String,
+
+  // -------------------------------------------
+  // FIELD: resetPasswordExpire
+  //   Expiration date for the password reset token.
+  //   Set to 15 minutes from creation time.
+  //   Cleared after successful password reset.
+  // -------------------------------------------
+  resetPasswordExpire: Date,
+});
 
 // =============================================
-// MIDDLEWARE: Pre-save Hook (Password Hashing)
+// HOOK: Pre-save (Password Hashing)
 //   Before saving a user document to MongoDB:
-//   1. Check if the password field was modified.
-//      If not, skip hashing (calls next()).
-//   2. If modified, hash the password using bcrypt
-//      with a salt round of 10.
-//   This ensures passwords are never stored in plaintext.
-//   NOTE: Missing `return` before next() means hashing
-//         still runs even when password is unchanged.
+//
+//   Flow:
+//     1. Check if the password field was modified
+//        using this.isModified("password").
+//     2. If NOT modified, skip hashing (call next()).
+//     3. If modified, hash the password using bcrypt
+//        with a salt round of 10.
+//     4. This ensures passwords are NEVER stored in
+//        plaintext in the database.
+//
+//   NOTE: The bcrypt salt round of 10 means the
+//   hashing algorithm runs 2^10 = 1024 iterations.
+//   Higher = more secure but slower.
 // =============================================
 userSchema.pre("save", async function (next) {
-
-    if (!this.isModified("password")) { next(); }
-    this.password = await bcrypt.hash(this.password, 10)
-})
+  // Only hash the password if it was modified (not on every save)
+  if (!this.isModified("password")) {
+    next();
+  }
+  // Hash the password with bcrypt (10 salt rounds)
+  this.password = await bcrypt.hash(this.password, 10);
+});
 
 // =============================================
 // INSTANCE METHOD: getJWTToken()
 //   Signs a JSON Web Token containing the user's _id.
-//   Uses JWT_SECRET and JWT_EXPIRE from environment variables.
-//   Called after login/register to generate an auth token.
+//   This token is used for authentication — it's sent
+//   to the client as an HTTP-only cookie and included
+//   in subsequent requests to access protected routes.
+//
+//   Token payload:
+//     { id: user._id }
+//
+//   Signed with:
+//     - JWT_SECRET from environment variables
+//     - expiresIn from JWT_EXPIRE env var (e.g., "7d")
 // =============================================
 userSchema.methods.getJWTToken = function () {
-    return jwt.sign({ id: this._id }, process.env.JWT_SECRET, {
-        expiresIn: process.env.JWT_EXPIRE,
-    })
-}
+  return jwt.sign({ id: this._id }, process.env.JWT_SECRET, {
+    expiresIn: process.env.JWT_EXPIRE,
+  });
+};
 
 // =============================================
 // INSTANCE METHOD: comparePassword()
 //   Compares a plaintext password (from login form)
 //   against the hashed password stored in the database.
-//   Uses bcrypt.compare() which handles salt comparison.
-//   Returns true if passwords match, false otherwise.
+//
+//   How bcrypt.compare works:
+//     1. Extracts the salt from the stored hash
+//     2. Hashes the entered password with the same salt
+//     3. Compares the two hashes
+//     4. Returns true if they match, false otherwise
+//
+//   This method is used in the loginUser controller
+//   to verify the user's password during login.
 // =============================================
 userSchema.methods.comparePassword = async function (enteredPassword) {
-    return await bcrypt.compare(enteredPassword, this.password)
-}
-
+  return await bcrypt.compare(enteredPassword, this.password);
+};
 
 // =============================================
 // INSTANCE METHOD: getResetPasswordToken()
-//   Generates a password reset token for the forgot-password flow.
-//   1. Creates a random 20-byte token and converts it to hex string
-//   2. Hashes the token with SHA-256 and stores it in the database
-//      (the raw token is sent to the user via email, never stored)
-//   3. Sets the token expiry to 15 minutes from now
-//   4. Returns the raw (unhashed) token to be sent in the reset email
+//   Generates a password reset token for the
+//   forgot-password flow.
 //
-//   Security: Only the hashed version is stored in the DB so that
-//   even if the database is compromised, the raw tokens are safe.
+//   Flow:
+//     1. Creates a random 20-byte token and converts
+//        it to a hexadecimal string
+//     2. Hashes the token with SHA-256 and stores the
+//        hash in the database (resetPasswordToken)
+//     3. Sets the token expiry to 15 minutes from now
+//     4. Returns the RAW (unhashed) token to be sent
+//        in the password reset email
+//
+//   Security: Only the hashed version is stored in
+//   the DB. Even if the database is compromised, the
+//   raw tokens cannot be used to reset passwords.
 // =============================================
 userSchema.methods.getResetPasswordToken = function () {
+  // Generate a random 20-byte token and convert to hex string
+  const resetToken = crypto.randomBytes(20).toString("hex");
 
-    const resetToken = crypto.randomBytes(20).toString("hex");
+  // Hash the token with SHA-256 before storing in the database
+  this.resetPasswordToken = crypto
+    .createHash("sha256")
+    .update(resetToken)
+    .digest("hex");
 
-    this.resetPasswordToken = crypto.createHash("sha256").update(resetToken).digest("hex");
+  // Set token expiry to 15 minutes from now
+  this.resetPasswordExpire = Date.now() + 15 * 60 * 1000;
 
-    this.resetPasswordExpire = Date.now() + 15*60*1000;
+  // Return the raw (unhashed) token for the email
+  return resetToken;
+};
 
-    return resetToken;
-}
 // =============================================
 // EXPORT: User Model
 //   Creates and exports the "User" model.
 //   This model is used in controllers to perform
 //   CRUD operations on the "users" collection.
+//   Mongoose automatically pluralizes "User"
+//   to "users" for the collection name.
 // =============================================
 module.exports = mongoose.model("User", userSchema);

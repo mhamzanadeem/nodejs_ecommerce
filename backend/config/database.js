@@ -14,17 +14,32 @@
 // =============================================
 // IMPORTS
 // =============================================
-const mongoose = require("mongoose")
+const mongoose = require("mongoose");
 
 // =============================================
-// CREATE: Database Connection Function
-//   Uses mongoose.connect() with the DB_URI
-//   environment variable. Handles success/error
-//   via .then() and .catch() promises.
+// FUNCTION: connectDatabase
+//   Establishes a connection to MongoDB using the
+//   Mongoose ODM. The connection string (DB_URI) is
+//   read from environment variables loaded by dotenv.
+//
+//   Flow:
+//     1. Calls mongoose.connect() with the DB_URI
+//     2. On success (.then), logs the connected host
+//        name to confirm the connection
+//     3. On failure (.catch), the error propagates
+//        to the unhandledRejection handler in server.js
+//
+//   Usage:
+//     Called once in server.js before starting the Express server.
+//     connectDatabase();
 // =============================================
-const connectDatabase = () => { mongoose.connect(process.env.DB_URI).then((data) => { console.log(`Mongodb connect with server: ${data.connection.host}`); }); }
+const connectDatabase = () => {
+  mongoose.connect(process.env.DB_URI).then((data) => {
+    console.log(`Mongodb connect with server: ${data.connection.host}`);
+  });
+};
 
 // =============================================
 // EXPORT: Connect function to be called in server.js
 // =============================================
-module.exports = connectDatabase
+module.exports = connectDatabase;

@@ -19,7 +19,7 @@
 // IMPORTS
 // =============================================
 const express = require("express");                                        // Express framework
-const { registerUser , loginUser , logout, forgotPassword} = require("../controllers/userController"); // User auth controller functions
+const { registerUser , loginUser , logout, forgotPassword , resetPassword} = require("../controllers/userController"); // User auth controller functions
 
 // =============================================
 // CREATE: Express Router instance
@@ -44,6 +44,7 @@ router.route("/register").post(registerUser);
 router.route("/login").post(loginUser);
 router.route("/logout").get(logout);
 router.route("/password/forgot").post(forgotPassword);
+router.route("/password/reset/:token").put(resetPassword);
 
 
 // =============================================

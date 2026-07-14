@@ -103,10 +103,20 @@ class ApiFeatures {
 
     // Convert URL operators (gte, gt, lt, lte) to MongoDB format ($gte, $gt, $lt, $lte)
     let querystr = JSON.stringify(queryCopy);
-    querystr = querystr.replace(/\b(gt|gte|lt|lte)\g, (key) => `$${key}`);
+    querystr = querystr.replace(/\b(gt|gte|lt|lte)\b/g, (key) => `$${key}`);
+
+    // Parse and convert string values to numbers for proper MongoDB comparison
+    const parsedQuery = JSON.parse(querystr);
+    for (const key in parsedQuery) {
+      if (typeof parsedQuery[key] === "object" && parsedQuery[key] !== null) {
+        for (const innerKey in parsedQuery[key]) {
+          parsedQuery[key][innerKey] = Number(parsedQuery[key][innerKey]);
+        }
+      }
+    }
 
     // Apply the filters to the Mongoose query
-    this.query = this.query.find(JSON.parse(querystr));
+    this.query = this.query.find(parsedQuery);
     return this;
   }
 

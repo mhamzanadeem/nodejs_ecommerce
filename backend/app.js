@@ -15,6 +15,7 @@
 // IMPORTS
 // =============================================
 const express = require("express");
+const cookieParser = require("cookie-parser");
 
 // =============================================
 // CREATE: Express App Instance
@@ -23,6 +24,15 @@ const express = require("express");
 //   before being exported for use in server.js.
 // =============================================
 const app = express();
+
+// =============================================
+// SETTINGS: Extended Query Parser
+//   Enables nested object parsing in query strings.
+//   Without this, ?price[gt]=500 becomes
+//   { "price[gt]": "500" } instead of { price: { gt: "500" } }
+//   Required for the ApiFeatures filter method to work.
+// =============================================
+app.set("query parser", "extended");
 
 // =============================================
 // IMPORTS: Middleware & Routes
@@ -34,7 +44,11 @@ const app = express();
 const errorMiddleware = require("./middleware/error");
 const product = require("./routes/productRoute");
 const user = require("./routes/userRoute");
-
+/**
+ * order routes: All order-related endpoints
+ * (create order, view orders, manage orders)
+ */
+const order = require("./routes/orderRoute");
 // =============================================
 // MIDDLEWARE: Parse JSON Request Bodies
 //   Enables Express to automatically parse incoming
@@ -45,20 +59,30 @@ const user = require("./routes/userRoute");
 app.use(express.json());
 
 // =============================================
+// MIDDLEWARE: Parse Cookies
+//   Parses the Cookie header from incoming requests
+//   and populates req.cookies with key-value pairs.
+//   Required by the auth middleware to read the JWT
+//   token from the "token" cookie.
+// =============================================
+app.use(cookieParser());
+
+// =============================================
 // ROUTE MOUNTING
-//   All product and user routes are mounted under
-//   the "/api/v1" prefix. This provides versioning
+//   All product, user, and order routes are mounted
+//   under the "/api/v1" prefix. This provides versioning
 //   for the API. For example:
 //     GET  /api/v1/products       -> getAllProducts
 //     POST /api/v1/register       -> registerUser
 //     POST /api/v1/login          -> loginUser
+//     POST /api/v1/order/new      -> newOrder
 //
-//   Both routers handle multiple HTTP methods
+//   Each router handles multiple HTTP methods
 //   (GET, POST, PUT, DELETE) on their respective paths.
 // =============================================
 app.use("/api/v1", product);
 app.use("/api/v1", user);
-
+app.use("/api/v1", order);
 // =============================================
 // ERROR HANDLING MIDDLEWARE
 //   Catches all errors thrown or passed via next(error)

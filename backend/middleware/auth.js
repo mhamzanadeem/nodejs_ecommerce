@@ -69,18 +69,28 @@ const User = require("../models/userModel");
 //     router.get("/profile", isAuthenticateduser, getProfile)
 // =============================================
 exports.isAuthenticateduser = catchAsyncErrors(async (req, res, next) => {
-  // Extract the JWT token from the request cookies
+  // Extract the JWT token from cookies OR Authorization header
+  // Supports both: cookie-based (browser) and header-based (Postman/API clients)
   const { token } = req.cookies;
 
-  // If no token is present, the user is not authenticated
-  if (!token) {
+  // If no token in cookie, check the Authorization header (Bearer token)
+  const authHeader = req.headers.authorization;
+  const tokenFromHeader =
+    authHeader && authHeader.startsWith("Bearer ")
+      ? authHeader.split(" ")[1]
+      : null;
+
+  const jwtToken = token || tokenFromHeader;
+
+  // If no token is present anywhere, the user is not authenticated
+  if (!jwtToken) {
     return next(
       new ErrorHandler("Please Login to access this resource", 401),
     );
   }
 
   // Verify the token and decode the payload (contains user ID)
-  const decodeddata = jwt.verify(token, process.env.JWT_SECRET);
+  const decodeddata = jwt.verify(jwtToken, process.env.JWT_SECRET);
 
   // Fetch the full user document from the database
   // This user object is available in all downstream controllers

@@ -101,8 +101,8 @@ exports.getAllProducts = catchAsyncErrors(async (req, res) => {
     .filter()
     .pagination(resultPerPage);
 
-  // Execute the chained query
-  const products = await Product.query();
+  // Execute the chained query from ApiFeatures
+  const products = await apiFeature.query;
 
   res.status(200).json({
     success: true,
@@ -344,7 +344,7 @@ exports.deleteReview = catchAsyncErrors(async (req, res, next) => {
   const numofReviews = reviews.length;
 
   // Persist the changes to the database
-  await product.findByIdAndUpdate(
+  await Product.findByIdAndUpdate(
     req.query.productId,
     {
       reviews,
